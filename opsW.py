@@ -7,60 +7,98 @@ import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-threshold = 0.8
-working_dir = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Images"
-nsfw_dir = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Nsfw"
-processed_files = []
+# Define o limiar de probabilidade para mover uma imagem para o diretório NSFW
+nsfw_probability_threshold = 0.8
+
+# Define os diretórios de trabalho e NSFW
+working_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Images"
+nsfw_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Nsfw"
+
+# Lista para armazenar os arquivos processados
+processed_files_list = []
+
+# Fila para armazenar os arquivos a serem processados
 file_queue = queue.Queue()
-num_threads = 2
 
-if not os.path.isdir(working_dir):
-    print("Working directory does not exist:", working_dir)
-    exit()
+# Número de threads para processar os arquivos
+number_of_threads = 2
 
-if not os.path.isdir(nsfw_dir):
-    print("NSFW directory does not exist:", nsfw_dir)
-    exit()
+def check_directories():
+    # Verifica se os diretórios especificados existem
+    if not os.path.isdir(working_directory):
+        print("Working directory does not exist:", working_directory)
+        exit()
+
+    if not os.path.isdir(nsfw_directory):
+        print("NSFW directory does not exist:", nsfw_directory)
+        exit()
 
 def process_files():
+    # Processa os arquivos na fila
     while True:
-        fname = file_queue.get()
-        if fname is None:
+        file_name = file_queue.get()
+        if file_name is None:
             break
         
-        nsfw_probability = n2.predict_image(fname)
-        print(fname, nsfw_probability)
-        if nsfw_probability > threshold:
-            shutil.move(fname, os.path.join(nsfw_dir, os.path.basename(fname)))
-        processed_files.append(fname)
+        # Usa a biblioteca opennsfw2 para prever a probabilidade de uma imagem ser NSFW
+        nsfw_probability = n2.predict_image(file_name)
+        print(file_name, nsfw_probability)
+        
+        # Move a imagem para o diretório NSFW se a probabilidade for maior que o limiar definido
+        if nsfw_probability > nsfw_probability_threshold:
+            shutil.move(file_name, os.path.join(nsfw_directory, os.path.basename(file_name)))
+        
+        # Adiciona o arquivo à lista de arquivos processados
+        processed_files_list.append(file_name)
 
 class MyHandler(FileSystemEventHandler):
+    # Classe para lidar com eventos do sistema de arquivos
     def on_created(self, event):
+        # Adiciona o arquivo à fila quando um novo arquivo é criado no diretório observado
         if event.is_directory:
             return
         file_queue.put(event.src_path)
 
-event_handler = MyHandler()
-observer = Observer()
-observer.schedule(event_handler, working_dir, recursive=False)
-observer.start()
+def start_observer():
+    # Inicia o observador do sistema de arquivos para observar o diretório especificado
+    event_handler = MyHandler()
+    observer = Observer()
+    observer.schedule(event_handler, working_directory, recursive=False)
+    observer.start()
+    return observer
 
-threads = []
-for i in range(num_threads):
-    t = threading.Thread(target=process_files)
-    threads.append(t)
-    t.start()
+def start_threads():
+    # Inicia as threads para processar os arquivos na fila
+    threads = []
+    for i in range(number_of_threads):
+        thread = threading.Thread(target=process_files)
+        threads.append(thread)
+        thread.start()
+    return threads
 
-try:
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    observer.stop()
+def stop_threads(threads):
+    # Para as threads adicionando None à fila para cada thread
+    for i in range(number_of_threads):
+        file_queue.put(None)
 
-for i in range(num_threads):
-    file_queue.put(None)
+    # Aguarda todas as threads terminarem
+    for thread in threads:
+        thread.join()
 
-for t in threads:
-    t.join()
+def main():
+    # Função principal para executar o programa
+    check_directories()
+    observer = start_observer()
+    threads = start_threads()
 
-observer.join()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+
+    stop_threads(threads)
+    observer.join()
+
+if __name__ == "__main__":
+    main()
