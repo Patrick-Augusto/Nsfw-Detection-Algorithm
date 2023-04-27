@@ -11,8 +11,8 @@ from watchdog.events import FileSystemEventHandler
 nsfw_probability_threshold = 0.8
 
 # Define os diretórios de trabalho e NSFW
-working_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Images"
-nsfw_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Nsfw"
+working_directory = "C:\\Images"
+nsfw_directory = "C:\\Nsfw"
 
 # Lista para armazenar os arquivos processados
 processed_files_list = []
