@@ -10,7 +10,7 @@ from watchdog.events import FileSystemEventHandler
 # Define o limiar de probabilidade para mover uma imagem para o diretório NSFW
 nsfw_probability_threshold = 0.8
 
-# Define os diretórios de trabalho e NSFW
+# Define os diretórios de onde o arquivo vai ser buscado e para aonde o arquivo vai ser tranferido. 
 working_directory = "C:\\Images"
 nsfw_directory = "C:\\Nsfw"
 
