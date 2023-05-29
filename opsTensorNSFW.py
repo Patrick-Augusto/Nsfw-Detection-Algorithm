@@ -1,3 +1,4 @@
+import openai
 import opennsfw2 as n2
 import os
 import shutil
@@ -7,6 +8,10 @@ import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+# Define a chave da API OpenAI e o modelo a ser utilizado
+openai.api_key = "sua_chave_API_do_OpenAI"
+model_engine = "davinci"  # Pode ser substituído por outro modelo OpenAI
+
 # Define o limiar de probabilidade para mover uma imagem para o diretório NSFW
 nsfw_probability_threshold = 0.8
 
@@ -14,14 +19,15 @@ nsfw_probability_threshold = 0.8
 working_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Images"
 nsfw_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Nsfw"
 
-# Lista para armazenar os arquivos processados.
+# Lista para armazenar os arquivos processados
 processed_files_list = []
 
-# Fila para armazenar os arquivos a serem processados.
+# Fila para armazenar os arquivos a serem processados
 file_queue = queue.Queue()
 
-# Número de threads para processar os arquivos.
+# Número de threads para processar os arquivos
 number_of_threads = 10
+
 
 def check_directories():
     # Verifica se os diretórios especificados existem
@@ -32,7 +38,7 @@ def check_directories():
     if not os.path.isdir(nsfw_directory):
         print("NSFW directory does not exist:", nsfw_directory)
         exit()
-#How do I make my function def process_files , if checked twice? 
+
 
 def process_files():
     # Processa os arquivos na fila
@@ -40,20 +46,28 @@ def process_files():
         file_name = file_queue.get()
         if file_name is None:
             break
-         
+
         # Usa a biblioteca opennsfw2 para prever a probabilidade de uma imagem ser NSFW
         nsfw_probability = n2.predict_image(file_name)
         print(file_name, nsfw_probability)
-        
+
         # Move a imagem para o diretório NSFW se a probabilidade for maior que o limiar definido
         if nsfw_probability > nsfw_probability_threshold:
             shutil.move(file_name, os.path.join(nsfw_directory, os.path.basename(file_name)))
-            print("The video is NSFW.")
-        else:                                      
-           print("The image is not NSFW.")
 
         # Adiciona o arquivo à lista de arquivos processados
         processed_files_list.append(file_name)
+
+        # Usa o modelo OpenAI para gerar uma descrição para a imagem
+        try:
+            with open(file_name, "rb") as image_file:
+                image_data = image_file.read()
+                response = openai.Completion.create(engine=model_engine, prompt=f"Describe the image in one sentence:\n{image_data.decode('ISO-8859-1')}\n", max_tokens=50)
+                image_description = response.choices[0].text.strip()
+                print(image_description)
+        except Exception as e:
+            print(e)
+
 
 class MyHandler(FileSystemEventHandler):
     # Classe para lidar com eventos do sistema de arquivos
@@ -63,6 +77,7 @@ class MyHandler(FileSystemEventHandler):
             return
         file_queue.put(event.src_path)
 
+
 def start_observer():
     # Inicia o observador do sistema de arquivos para observar o diretório especificado
     event_handler = MyHandler()
@@ -71,39 +86,37 @@ def start_observer():
     observer.start()
     return observer
 
+
 def start_threads():
-    # Inicia as threads para processar os arquivos na fila
-    threads = []
-    for i in range(number_of_threads):
-        thread = threading.Thread(target=process_files)
-        threads.append(thread)
-        thread.start()
-    return threads
+  
+# Inicia, gerencia e aguarda as threads de processamento de arquivos
+threads = []
+for i in range(number_of_threads):
+thread = threading.Thread(target=process_files)
+thread.start()
+threads.append(thread)
+for thread in threads:
+    thread.join()
+    if name == "main":
+# Verifica se os diretórios existem
+check_directories()
 
-def stop_threads(threads):
-    # Para as threads adicionando None à fila para cada thread
-    for i in range(number_of_threads):
-        file_queue.put(None)
+# Inicia o observador do sistema de arquivos
+observer = start_observer()
 
-    # Aguarda todas as threads terminarem
-    for thread in threads:
-        thread.join()
-        
+try:
+    # Inicia as threads de processamento de arquivos
+    start_threads()
+except KeyboardInterrupt:
+    # Interrompe o programa se o usuário pressionar CTRL-C
+    pass
 
-def main():
-    # Função principal para executar o programa
-    check_directories()
-    observer = start_observer()
-    threads = start_threads()
+# Para o observador do sistema de arquivos
+observer.stop()
+observer.join()
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
+# Imprime a lista de arquivos processados
+print("Processed files:")
+for file_name in processed_files_list:
+    print(file_name)
 
-    stop_threads(threads)
-    observer.join()
-
-if __name__ == "__main__":
-    main()
