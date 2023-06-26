@@ -22,8 +22,8 @@ Antes de executar o projeto, é necessário configurar os diretórios de trabalh
 nsfw_probability_threshold = 0.8
 
 # Define os diretórios de trabalho e NSFW
-working_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Images"
-nsfw_directory = "C:\\Users\\patri\\OneDrive\\Área de Trabalho\\Teste do algoritimo\\Nsfw"
+working_directory = "C:\\Images"
+nsfw_directory = "C:\\Nsfw"
 ```
 
 3. Modifique o valor da variável `nsfw_probability_threshold` para o limiar desejado. Por padrão, está definido como `0.8`.
