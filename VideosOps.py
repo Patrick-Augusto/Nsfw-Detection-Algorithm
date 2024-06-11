@@ -37,7 +37,8 @@ def process_files():
             file_name = file_queue.get()
             if file_name is None:
                 break
-            executor.submit(process_file, file_name)
+            future = executor.submit(process_file, file_name)
+            print("Number of active threads: ", len(executor._threads))
 
 class MyHandler(FileSystemEventHandler):
     def on_created(self, event):
