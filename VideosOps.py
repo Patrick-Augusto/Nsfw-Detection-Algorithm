@@ -6,27 +6,41 @@ import queue
 import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-
-# Set the probability threshold for moving an image or video into the NSFW directory
-nsfw_probability_threshold = 0.8
-nsfw_probability = 0.0
-# Set the working and NSFW directories
-working_directory = "C:\\Videos"
-nsfw_directory = "C:\\Videos NSFW"
-
-# List to store the processed files
-processed_files_list = []
-
-# Queue to store the files to be processed
-file_queue = queue.Queue()
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 # Number of threads to process the files
 number_of_threads = 10
 
+def process_file(file_name):
+    start_time = time.time()
+    elapsed_seconds, nsfw_probabilities = n2.predict_video_frames(file_name)
+    end_time = time.time()
+    print(file_name, nsfw_probabilities)
+    print("Processing time: ", end_time - start_time, "seconds")
+    if max(nsfw_probabilities) > 1:
+        print("The maximum NSFW probability is greater than 0.8")
 
-# List to store the processed files
+def process_files():
+    with ThreadPoolExecutor(max_workers=number_of_threads) as executor:
+        while True:
+            file_name = file_queue.get()
+            if file_name is None:
+                break
+            executor.submit(process_file, file_name)
+
+
+nsfw_probability_threshold = 0.8
+nsfw_probability = 0.0
+working_directory = "C:\\Videos"
+nsfw_directory = "C:\\Videos NSFW"
+processed_files_list = []
+file_queue = queue.Queue()
+number_of_threads = 10
+
+
+
 def check_directories():
-    # Checks if the specified directories exist
     if not os.path.isdir(working_directory):
         print("Working directory does not exist:", working_directory)
         exit()
@@ -35,8 +49,10 @@ def check_directories():
         print("NSFW directory does not exist:", nsfw_directory)
         exit()
         
+
 def process_files():
     while True:
+        start_time = time.time()  
         file_name = file_queue.get()
         if file_name is None:
             break
@@ -46,7 +62,6 @@ def process_files():
         if max(nsfw_probabilities) > 1:
             print("The maximum NSFW probability is greater than 0.8")
 
-        # Move image or video to NSFW directory if probability is greater than defined threshold
         if any([nsfw_p > nsfw_probability_threshold for nsfw_p in nsfw_probabilities]):
             if file_name.endswith(".mp4") or file_name.endswith(".avi") or file_name.endswith(".mov"):
                 shutil.move(file_name, os.path.join(nsfw_directory, os.path.basename(file_name)))
@@ -54,30 +69,32 @@ def process_files():
             else:
                 print("The image is not NSFW.")
 
-        processed_files_list.append((file_name, elapsed_seconds))  # Store file and elapsed time
-
-end_time = time.time()  # End measuring time
+        processed_files_list.append((file_name, elapsed_seconds))
+        end_time = time.time()  
+        elapsed_time = end_time - start_time  
+        active_threads = threading.active_count()
+        print(f"Processed {file_name} in {elapsed_time:.2f} seconds using {active_threads} threads.")
 
 
 
 class MyHandler(FileSystemEventHandler):
-    # Class to handle file system events
+   
     def on_created(self, event):
-        # Adds the file to the queue when a new file is created in the observed directory
+      
         if event.is_directory:
             return
         file_queue.put(event.src_path)
         
 
 def start_observer():
-    # Starts the file system observer to observe the specified directory
+   
     observer = Observer()
     observer.schedule(MyHandler(), working_directory, recursive=False)
     observer.start()
     return observer
 
 def start_threads():
-    # Starts the threads to process the files in the queue
+ 
     threads = []
     for i in range(number_of_threads):
         thread = threading.Thread(target=process_files)
@@ -86,17 +103,17 @@ def start_threads():
     return threads  
 
 def stop_threads(threads):
-    # Para as threads adicionando None à fila para cada thread
+    
     for i in range(number_of_threads):
         file_queue.put(None)
 
-    # Aguarda todas as threads terminarem
+   
     for thread in threads:
         thread.join()
         
 
 def main():
-    # Função principal para executar o programa
+  
     check_directories()
     observer = start_observer()
     threads = start_threads()
